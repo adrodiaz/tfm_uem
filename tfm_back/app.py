@@ -301,6 +301,114 @@ def get_team_performance_chart():
             return send_file(img, mimetype='image/png')
     finally:
         connection.close()
+        
+
+# Devolver la cantidad de goles de equipo por temporada
+@app.route('/api/team_goals_scored_chart', methods=['GET'])
+def get_team_goals_scored_chart():
+    team_id = request.args.get('team_id')
+    competition_id = request.args.get('competition_id')
+
+    if not team_id or not competition_id:
+        return jsonify({"error": "team_id and competition_id are required"}), 400
+
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            sql = """
+                SELECT
+                    g.season,
+                    SUM(CASE 
+                        WHEN g.home_club_id = %s THEN g.home_club_goals
+                        WHEN g.away_club_id = %s THEN g.away_club_goals
+                        ELSE 0
+                    END) AS goals_scored
+                FROM games g
+                WHERE (g.home_club_id = %s OR g.away_club_id = %s)
+                  AND g.competition_id = %s
+                GROUP BY g.season
+                ORDER BY g.season;
+            """
+            cursor.execute(sql, (team_id, team_id, team_id, team_id, competition_id))
+            goals_data = cursor.fetchall()
+
+            if not goals_data:
+                return jsonify({"error": "No goals scored data found"}), 404
+
+            # Crear el gráfico
+            seasons = [row['season'] for row in goals_data]
+            goals_scored = [row['goals_scored'] for row in goals_data]
+
+            plt.figure(figsize=(10, 6))
+            plt.plot(seasons, goals_scored, marker='o', color='green', label='Goles realizados')
+            plt.xlabel('Temporada')
+            plt.ylabel('Goles Realizados')
+            plt.title('Goles realizados por temporada')
+            plt.grid(True)
+            plt.legend()
+
+            # Guardar la gráfica en un objeto de memoria
+            img = io.BytesIO()
+            plt.savefig(img, format='png')
+            img.seek(0)
+
+            # Devolver la gráfica como respuesta
+            return send_file(img, mimetype='image/png')
+    finally:
+        connection.close()
+        
+@app.route('/api/team_goals_conceded_chart', methods=['GET'])
+def get_team_goals_conceded_chart():
+    team_id = request.args.get('team_id')
+    competition_id = request.args.get('competition_id')
+
+    if not team_id or not competition_id:
+        return jsonify({"error": "team_id and competition_id are required"}), 400
+
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            sql = """
+                SELECT
+                    g.season,
+                    SUM(CASE 
+                        WHEN g.home_club_id = %s THEN g.away_club_goals
+                        WHEN g.away_club_id = %s THEN g.home_club_goals
+                        ELSE 0
+                    END) AS goals_conceded
+                FROM games g
+                WHERE (g.home_club_id = %s OR g.away_club_id = %s)
+                  AND g.competition_id = %s
+                GROUP BY g.season
+                ORDER BY g.season;
+            """
+            cursor.execute(sql, (team_id, team_id, team_id, team_id, competition_id))
+            goals_data = cursor.fetchall()
+
+            if not goals_data:
+                return jsonify({"error": "No goals conceded data found"}), 404
+
+            # Crear el gráfico
+            seasons = [row['season'] for row in goals_data]
+            goals_conceded = [row['goals_conceded'] for row in goals_data]
+
+            plt.figure(figsize=(10, 6))
+            plt.plot(seasons, goals_conceded, marker='o', color='red', label='Goles recibidos')
+            plt.xlabel('Temporada')
+            plt.ylabel('Goles Recibidos')
+            plt.title('Goles recibidos por temporada')
+            plt.grid(True)
+            plt.legend()
+
+            # Guardar la gráfica en un objeto de memoria
+            img = io.BytesIO()
+            plt.savefig(img, format='png')
+            img.seek(0)
+
+            # Devolver la gráfica como respuesta
+            return send_file(img, mimetype='image/png')
+    finally:
+        connection.close()
 
 if __name__ == '__main__':
     app.run(debug=True)
