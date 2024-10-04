@@ -37,21 +37,46 @@ export const getClubsByCompetition = async (competitionId) => {
     }
   };
 
-  export const getPlayers = async (searchParams, page = 1, perPage = 10) => {
-    try {
-      const response = await axios.get(`${API_URL}/players`, {
-        params: {
-          ...searchParams, // Incluye los parámetros de búsqueda
-          page,
-          per_page: perPage
-        },
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching players data:', error);
-      throw error;
+  // Función para obtener jugadores con parámetros de búsqueda, paginación incluida
+export const getPlayers = async (searchParams, page = 1, perPage = 10) => {
+  try {
+    const response = await axios.get(`${API_URL}/players`, {
+      params: {
+        ...searchParams,
+        page,
+        per_page: perPage
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching players:', error);
+    throw error;
+  }
+};
+
+// Función para obtener detalles de un jugador por su ID
+export const getPlayerById = async (playerId) => {
+  try {
+    const response = await axios.get(`${API_URL}/players/${playerId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching player details:', error);
+    throw error;
+  }
+};
+
+export const getTeams = async (search, page, perPage) => {
+  const response = await axios.get(`${API_URL}/teamsSearch`, {
+    params: {
+      name: search.name,
+      country: search.country,
+      competition: search.competition,
+      page: page,
+      per_page: perPage
     }
-  };
+  });
+  return response.data;
+};
 
 // Obtener temporadas por competición
 export const getSeasons = async (competitionId) => {
@@ -80,7 +105,7 @@ export async function getGamesByCompetition(competitionId, season) {
   }
 }
 
-export const getTeams = async (competitionId, season) => {
+export const getTeamsBySeason = async (competitionId, season) => {
   try {
     const response = await axios.get(`${API_URL}/teams`, {
       params: { competition_id: competitionId, season: season }

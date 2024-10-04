@@ -65,7 +65,7 @@
 
 <script>
 
-import { getSeasons, getTeams, getTeamPerformanceChart, getTeamGoalsChart, getTeamConcededGoalsChart } from '../services/api';
+import { getSeasons, getTeamsBySeason, getTeamPerformanceChart, getTeamGoalsChart, getTeamConcededGoalsChart } from '../services/api';
 
 export default {
   data() {
@@ -104,7 +104,7 @@ export default {
       this.performanceChart = null;
       
       try {
-        const response = await getTeams(this.competitionId, season);
+        const response = await getTeamsBySeason(this.competitionId, season);
         this.teams = response;
       } catch (error) {
         console.error('Error loading teams:', error);
@@ -140,70 +140,6 @@ export default {
     },
   }
 };
-
-/*
-import { getSeasons, getTeams, getTeamPerformanceChart } from '../services/api';
-
-
-export default {
-  data() {
-    return {
-      seasons: [],
-      teams: [],
-      selectedSeason: null,
-      selectedTeam: null,
-      teamPerformanceImage: null,
-      competitionId: this.$route.params.competitionId,
-      performanceChart: null,
-      teamId: this.$route.params.teamId
-    };
-  },
-  async created() {
-    try {
-      const response = await getSeasons(this.competitionId);
-      console.log('Seasons:', response); // Verificar si las temporadas se están cargando
-      this.seasons = response;
-
-      // Verifica si hay temporadas disponibles
-      if (this.seasons.length > 0) {
-        // Establece la última temporada como la seleccionada
-        this.selectedSeason = this.seasons[0].season;
-        // Llama a selectSeason para cargar los equipos de la última temporada
-        await this.selectSeason(this.selectedSeason);
-      }
-    } catch (error) {
-      console.error('Error loading seasons:', error);
-    }
-  },
-  methods: {
-    async selectSeason(season) {
-      console.log('Season selected:', season); // Verificar selección de temporada
-      this.selectedSeason = season;
-      this.selectedTeam = null;
-      this.teamPerformanceImage = null;
-
-      try {
-        const response = await getTeams(this.competitionId, season);
-        console.log('Teams:', response); // Verificar si los equipos se están cargando
-        this.teams = response;
-      } catch (error) {
-        console.error('Error loading teams:', error);
-      }
-    },
-
-    async loadTeamPerformance(team_id) {
-      console.log('Team selected:', team_id); // Verificar selección de equipo
-      this.selectedTeam = team_id;
-      try {
-        const chartData = await getTeamPerformanceChart(this.selectedTeam, this.competitionId);
-        this.performanceChart = chartData; 
-      } catch (error) {
-        console.error('Error al obtener el gráfico de desempeño:', error);
-      }
-    }
-  }
-};
-*/
 </script>
 
 <style scoped>

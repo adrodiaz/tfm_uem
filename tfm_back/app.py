@@ -96,32 +96,82 @@ def search_players():
         with connection.cursor() as cursor:
             name = request.args.get('name', default=None)
             position = request.args.get('position', default=None)
-            club = request.args.get('current_club_name', default=None)
+            club = request.args.get('current_club_name', default=None)  # Nombre del club
+            nationality = request.args.get('country_of_citizenship', default=None)
             page = int(request.args.get('page', 1))
             per_page = int(request.args.get('per_page', 10))
 
-            sql = "SELECT * FROM players WHERE TRUE"
+            sql = """
+                SELECT p.*, c.name 
+                FROM players p
+                JOIN clubs c ON p.current_club_id = c.club_id
+                WHERE TRUE
+            """
             params = []
 
             if name:
-                sql += " AND name LIKE %s"
+                sql += " AND p.name LIKE %s"
                 params.append(f"%{name}%")
             if position:
-                sql += " AND position = %s"
+                sql += " AND p.position = %s"
                 params.append(position)
             if club:
-                sql += " AND current_club_name LIKE %s"
+                sql += " AND c.name LIKE %s"
                 params.append(f"%{club}%")
+            if nationality:
+                sql += " AND p.country_of_citizenship LIKE %s"
+                params.append(f"%{nationality}%")
+                
+            # Imprimir la consulta SQL y los parámetros (no es necesario decode)
+            print("SQL Query:", cursor.mogrify(sql, params))
 
             cursor.execute(sql, params)
             players = cursor.fetchall()
 
             # Implementar paginación
+            total = len(players)
             start = (page - 1) * per_page
             end = start + per_page
             paginated_players = players[start:end]
-            
-            return jsonify(paginated_players)
+
+            return jsonify({
+                "players": paginated_players,
+                "total": total
+            })
+    finally:
+        connection.close()
+
+
+# Endpoint para obtener los detalles de un jugador por su ID
+@app.route('/api/players/<int:player_id>', methods=['GET'])
+def get_player_by_id(player_id):
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            # Consulta para obtener los datos del jugador
+            sql_player = """
+                SELECT * FROM players WHERE player_id = %s
+            """
+            cursor.execute(sql_player, (player_id,))
+            player = cursor.fetchone()
+
+            if not player:
+                return jsonify({'error': 'Jugador no encontrado'}), 404
+
+            # Simular estadísticas, puedes hacer una consulta similar a otra tabla
+            stats = {
+                "games_played": 100,  # Ejemplo de datos
+                "goals": 50,          # Ejemplo de datos
+                "assists": 20         # Ejemplo de datos
+            }
+
+            # Devolver los datos del jugador junto con las estadísticas
+            return jsonify({
+                "player": player,
+                "stats": stats
+            })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     finally:
         connection.close()
 
@@ -246,6 +296,85 @@ def get_teams_by_competition_and_season():
             return jsonify(teams)
     finally:
         connection.close()
+        
+@app.route('/api/teamsSearch', methods=['GET']) 
+def get_teams():
+    name = request.args.get('name')
+    country = request.args.get('country')
+    competition = request.args.get('competition')
+    page = request.args.get('page', default=1, type=int)
+    per_page = request.args.get('per_page', default=10, type=int)
+
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            # Consulta para obtener los equipos
+            sql = """
+                SELECT
+                    c.club_id AS team_id,
+                    c.name AS team_name,
+                    c.domestic_competition_id,
+                    co.country_name
+                FROM clubs c
+                JOIN competition co ON c.domestic_competition_id = co.competition_id
+                WHERE 1=1
+            """
+
+            params = []
+
+            if name:
+                sql += " AND c.name LIKE %s"
+                params.append(f"%{name}%")
+            
+            if country:
+                sql += " AND co.country_name LIKE %s"
+                params.append(f"%{country}%")
+            
+            if competition:
+                sql += " AND c.domestic_competition_id = %s"
+                params.append(competition)
+
+            sql += " LIMIT %s OFFSET %s"
+            params.append(per_page)
+            params.append((page - 1) * per_page)
+
+            cursor.execute(sql, params)
+            teams = cursor.fetchall()
+
+            if not teams:
+                return jsonify({"teams": [], "total": 0}), 200  # Cambié aquí para que devuelva un resultado vacío
+
+            # Contar el total de equipos que coinciden con los filtros
+            total_sql = """
+                SELECT COUNT(*) FROM clubs c
+                JOIN competition co ON c.domestic_competition_id = co.competition_id
+                WHERE 1=1
+            """
+            total_params = []
+
+            if name:
+                total_sql += " AND c.name LIKE %s"
+                total_params.append(f"%{name}%")
+            if country:
+                total_sql += " AND co.country_name LIKE %s"
+                total_params.append(f"%{country}%")
+            if competition:
+                total_sql += " AND c.domestic_competition_id = %s"
+                total_params.append(competition)
+
+            cursor.execute(total_sql, total_params)
+            total_result = cursor.fetchone()
+
+            # Manejo de resultados vacíos
+            total_count = total_result[0] if total_result and len(total_result) > 0 else 0
+
+            return jsonify({
+                "teams": teams,
+                "total": total_count
+            })
+    finally:
+        connection.close()
+
 
 # Devolver el rendimiento de cada equipo por temporada
 @app.route('/api/team_performance_chart', methods=['GET'])
