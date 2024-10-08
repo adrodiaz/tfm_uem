@@ -3,10 +3,14 @@
     <h1>Buscar Equipos</h1>
 
     <!-- Formulario de búsqueda -->
-    <form @submit.prevent="searchTeams" class="search-form">
+    <form @submit.prevent="resetSearch" class="search-form">
       <input v-model="search.name" type="text" placeholder="Nombre del equipo">
-      <input v-model="search.country" type="text" placeholder="País">
-      <input v-model="search.competition" type="text" placeholder="Competición">
+      <select v-model="search.country">
+        <option value="">Seleccione el país</option>
+        <option v-for="(countryName, countryCode) in countries" :key="countryCode" :value="countryCode">
+          {{ countryName }}
+        </option>
+      </select>
       <button type="submit">Buscar</button>
     </form>
 
@@ -16,14 +20,13 @@
       <div class="team-grid">
         <div 
           v-for="team in teams" 
-          :key="team.club_id" 
-          @click="goToTeamDetail(team.club_id)"
+          :key="team.team_id" 
+          @click="goToTeamDetail(team.team_id)"
           class="team-card"
         >
           <div class="team-info">
-            <p class="team-name">{{ team.name }}</p>
-            <p class="team-country">{{ team.country }}</p>
-            <p class="team-competition">{{ team.domestic_competition_id }}</p>
+            <p class="team-name">{{ team.team_name }}</p>
+            <p class="team-country">{{ translateCountry(team.country_name) }}</p>
           </div>
         </div>
       </div>
@@ -41,8 +44,7 @@
 </template>
 
 <script>
-import { getTeams } from '../services/api'; // Asegúrate de tener este método en tu API
-
+import { getTeams } from '../services/api';
 export default {
   data() {
     return {
@@ -54,15 +56,36 @@ export default {
       teams: [],
       page: 1,
       perPage: 10, // Paginación con 10 equipos por página
-      hasMoreTeams: false
+      hasMoreTeams: false,
+      countries: {
+        "Germany": "Alemania",
+        "Belgium": "Bélgica",
+        "Denmark": "Dinamarca",
+        "Scotland": "Escocia",
+        "Spain": "España",
+        "France": "Francia",        
+        "Greece": "Grecia",
+        "England": "Inglaterra",
+        "Italy": "Italia",  
+        "Netherlands": "Países Bajos",
+        "Portugal": "Portugal",
+        "Russia": "Rusia",
+        "Turkey": "Turquía",
+        "Ukraine": "Ucrania"
+      }
     };
   },
-  methods: {
+    methods: {
+    // Método para reiniciar la búsqueda y establecer la página en 1
+    async resetSearch() {
+      this.page = 1; // Reiniciar a la primera página
+      await this.searchTeams(); // Llamar la búsqueda
+    },
+
+    // Método para realizar la búsqueda en una página específica
     async searchTeams() {
       // Limpiar los resultados antes de realizar la nueva búsqueda
       this.teams = [];
-      this.page = 1; // Reiniciar la página a 1
-      
       try {
         const data = await getTeams(this.search, this.page, this.perPage);
         this.teams = data.teams;
@@ -71,19 +94,31 @@ export default {
         console.error('Error fetching teams:', error);
       }
     },
+
+    // Traductor de código de país a nombre
+    translateCountry(countryCode) {
+      return this.countries[countryCode] || "Desconocido";
+    },
+
+    // Redirigir a los detalles del equipo
     goToTeamDetail(teamId) {
+      console.log("ID de equipo: ", teamId);
       this.$router.push({ name: 'EquipoDetails', params: { teamId } });
     },
+
+    // Ir a la página siguiente
     async nextPage() {
       if (this.hasMoreTeams) {
-        this.page++;
-        await this.searchTeams(); // Asegúrate de que se llama correctamente la función con la página actualizada
+        this.page++; // Incrementar el número de página
+        await this.searchTeams(); // Ejecutar la búsqueda con la nueva página
       }
     },
+
+    // Volver a la página anterior
     async previousPage() {
       if (this.page > 1) {
-        this.page--;
-        await this.searchTeams(); // Asegúrate de que se llama correctamente la función con la página actualizada
+        this.page--; // Decrementar el número de página
+        await this.searchTeams(); // Ejecutar la búsqueda con la nueva página
       }
     }
   }

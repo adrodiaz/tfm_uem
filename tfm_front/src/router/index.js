@@ -8,11 +8,13 @@ import CompetitionsByTypeView from '../components/CompetitionsByTypeView.vue';
 import ClubsByCompetitionView from '../components/ClubsByCompetitionView.vue';
 import GameDetails from '../components/GameDetails.vue';
 import SelectResults from '../components/SelectResults.vue';
+import EquipoDetailsView from '../components/EquipoDetailsView.vue';
 
 const routes = [
   { path: '/', name: 'Inicio', component: InicioView },
   { path: '/competiciones', component: CompetenciasView },
   { path: '/equipos', component: EquiposView }, // Ruta de Equipos
+  { path: '/equipos/:teamId', name: 'EquipoDetails', component: EquipoDetailsView },
   { path: '/jugadores', component: JugadoresView },
   { path: '/jugadores/:playerId', name: 'JugadorDetails', component: JugadoresDetailsView },
   { path: '/competitions/:compType', name: 'CompetitionsByType', component: CompetitionsByTypeView },

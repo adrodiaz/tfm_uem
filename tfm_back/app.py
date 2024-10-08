@@ -96,8 +96,10 @@ def search_players():
         with connection.cursor() as cursor:
             name = request.args.get('name', default=None)
             position = request.args.get('position', default=None)
-            club = request.args.get('current_club_name', default=None)  # Nombre del club
+            club = request.args.get('current_club_name', default=None)
             nationality = request.args.get('country_of_citizenship', default=None)
+            min_market_value = request.args.get('minPrice', default=0, type=float)
+            max_market_value = request.args.get('maxPrice', default=250000000, type=float)
             page = int(request.args.get('page', 1))
             per_page = int(request.args.get('per_page', 10))
 
@@ -121,7 +123,10 @@ def search_players():
             if nationality:
                 sql += " AND p.country_of_citizenship LIKE %s"
                 params.append(f"%{nationality}%")
-                
+            if min_market_value is not None and max_market_value is not None:
+                sql += " AND p.market_value_in_eur BETWEEN %s AND %s"
+                params.extend([min_market_value, max_market_value])
+
             # Imprimir la consulta SQL y los parámetros (no es necesario decode)
             print("SQL Query:", cursor.mogrify(sql, params))
 
@@ -267,43 +272,12 @@ def get_seasons_by_competition():
         
         
         
-@app.route('/api/teams', methods=['GET'])
-def get_teams_by_competition_and_season():
-    competition_id = request.args.get('competition_id')
-    season = request.args.get('season')
-
-    if not competition_id or not season:
-        return jsonify({"error": "competition_id and season are required"}), 400
-
-    connection = get_db_connection()
-    try:
-        with connection.cursor() as cursor:
-            sql = """
-                SELECT
-                    c.club_id AS team_id,
-                    c.name AS team_name
-                FROM clubs c
-                JOIN games g ON g.home_club_id = c.club_id OR g.away_club_id = c.club_id
-                WHERE g.competition_id = %s AND g.season = %s
-                GROUP BY c.club_id, c.name
-            """
-            cursor.execute(sql, (competition_id, season))
-            teams = cursor.fetchall()
-            
-            if not teams:
-                return jsonify({"error": "No teams found"}), 404
-
-            return jsonify(teams)
-    finally:
-        connection.close()
-        
 @app.route('/api/teamsSearch', methods=['GET']) 
 def get_teams():
     name = request.args.get('name')
     country = request.args.get('country')
-    competition = request.args.get('competition')
-    page = request.args.get('page', default=1, type=int)
-    per_page = request.args.get('per_page', default=10, type=int)
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 10))
 
     connection = get_db_connection()
     try:
@@ -313,8 +287,8 @@ def get_teams():
                 SELECT
                     c.club_id AS team_id,
                     c.name AS team_name,
-                    c.domestic_competition_id,
-                    co.country_name
+                    co.country_name,
+                    co.name
                 FROM clubs c
                 JOIN competition co ON c.domestic_competition_id = co.competition_id
                 WHERE 1=1
@@ -329,20 +303,22 @@ def get_teams():
             if country:
                 sql += " AND co.country_name LIKE %s"
                 params.append(f"%{country}%")
+
+            print("Executing SQL:", sql)  # Para depuración
+            print("With parameters:", params)  # Para depuración
             
-            if competition:
-                sql += " AND c.domestic_competition_id = %s"
-                params.append(competition)
-
-            sql += " LIMIT %s OFFSET %s"
-            params.append(per_page)
-            params.append((page - 1) * per_page)
-
             cursor.execute(sql, params)
             teams = cursor.fetchall()
 
+
+            # Implementar paginación
+            total = len(teams)
+            start = (page - 1) * per_page
+            end = start + per_page
+            paginated_teams = teams[start:end]
+            
             if not teams:
-                return jsonify({"teams": [], "total": 0}), 200  # Cambié aquí para que devuelva un resultado vacío
+                return jsonify({"teams": [], "total": 0}), 200
 
             # Contar el total de equipos que coinciden con los filtros
             total_sql = """
@@ -350,30 +326,23 @@ def get_teams():
                 JOIN competition co ON c.domestic_competition_id = co.competition_id
                 WHERE 1=1
             """
-            total_params = []
 
-            if name:
-                total_sql += " AND c.name LIKE %s"
-                total_params.append(f"%{name}%")
-            if country:
-                total_sql += " AND co.country_name LIKE %s"
-                total_params.append(f"%{country}%")
-            if competition:
-                total_sql += " AND c.domestic_competition_id = %s"
-                total_params.append(competition)
-
-            cursor.execute(total_sql, total_params)
-            total_result = cursor.fetchone()
-
-            # Manejo de resultados vacíos
-            total_count = total_result[0] if total_result and len(total_result) > 0 else 0
-
+            print("Executing total SQL:", sql)  # Para depuración
+            print("With total parameters:", params)  # Para depuración
+                        
             return jsonify({
-                "teams": teams,
-                "total": total_count
+                "teams": paginated_teams,
+                "total": total
             })
+    except Exception as e:
+        # Capturar y registrar detalles del error
+        error_message = str(e) if hasattr(e, 'message') else repr(e)
+        print("Error occurred:", error_message)  # Para ver cualquier error que ocurra
+        return jsonify({"error": error_message}), 500
     finally:
         connection.close()
+
+
 
 
 # Devolver el rendimiento de cada equipo por temporada
@@ -538,6 +507,37 @@ def get_team_goals_conceded_chart():
             return send_file(img, mimetype='image/png')
     finally:
         connection.close()
+
+# Función para obtener los detalles del equipo por ID
+@app.route('/api/teams/<int:team_id>', methods=['GET'])
+def get_team_details(team_id):
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            # Consultar la base de datos para obtener los detalles del equipo
+            query = """
+            SELECT 
+                name, 
+                squad_size, 
+                average_age, 
+                national_team_players, 
+                foreigners_percentage, 
+                stadium_name
+            FROM Clubs
+            WHERE club_id = %s
+            """
+            cursor.execute(query, (team_id,))
+            result = cursor.fetchone()
+
+            if result:
+                return jsonify(result), 200
+            else:
+                return jsonify({"error": "Team not found"}), 404
+    except Exception as e:
+        return jsonify({"error": "Internal server error"}), 500
+    finally:
+        connection.close()
+
 
 if __name__ == '__main__':
     app.run(debug=True)

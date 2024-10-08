@@ -2,35 +2,45 @@
   <div>
     <h1>Buscar Jugadores</h1>
 
-    <!-- Formulario de búsqueda -->
+    <!-- Input de búsqueda -->
     <form @submit.prevent="searchPlayers" class="search-form">
+      <!-- Inputs de búsqueda en la misma fila -->
       <input v-model="search.name" type="text" placeholder="Nombre del jugador">
-
-      <!-- Desplegable de posiciones -->
       <select v-model="search.position">
         <option value="">Selecciona una posición</option>
-        <option v-for="(spanishPosition,englishPosition) in positionsMap" 
+        <option v-for="(spanishPosition, englishPosition) in positionsMap" 
                 :key="englishPosition" 
                 :value="englishPosition">
           {{ spanishPosition }}
         </option>
       </select>
-
       <input v-model="search.current_club_name" type="text" placeholder="Nombre del club">
       <input v-model="search.country_of_citizenship" type="text" placeholder="Nacionalidad">
+
+      
+
+    <!-- Label y rango de precios en una fila separada -->
+    <div class="range-label">Valor de mercado:</div>
+      <div class="range-slider-container">
+        <div id="range-slider"></div>
+        <div class="range-values">
+          <span>Min: {{ rangeMin }} M€</span> <!-- Mostrar en millones -->
+          <span>Max: {{ rangeMax }} M€</span> <!-- Mostrar en millones -->
+        </div>
+      </div>
+
+
       <button type="submit">Buscar</button>
     </form>
 
-    <!-- Resultados de jugadores en formato de tarjetas -->
+    <!-- Resultados de jugadores -->
     <div v-if="players.length > 0">
       <h2>Resultados de la búsqueda</h2>
       <div class="player-grid">
-        <div 
-          v-for="player in players" 
-          :key="player.player_id" 
-          @click="goToPlayerDetail(player.player_id)"
-          class="player-card"
-        >
+        <div v-for="player in players" 
+             :key="player.player_id" 
+             @click="goToPlayerDetail(player.player_id)" 
+             class="player-card">
           <img :src="player.image_url" :alt="player.name">
           <div class="player-info">
             <p class="player-name">{{ player.name }}</p>
@@ -54,6 +64,8 @@
 </template>
 
 <script>
+import noUiSlider from 'nouislider';
+import 'nouislider/dist/nouislider.css';
 import { getPlayers } from '../services/api';
 
 export default {
@@ -63,9 +75,12 @@ export default {
         name: '',
         position: '',
         current_club_name: '',
-        country_of_citizenship: ''
+        country_of_citizenship: '',
+        min_market_value: '',
+        max_market_value: ''
       },
-      // Mapeo de posiciones en inglés y sus traducciones al español
+      rangeMin: 0, // Valor mínimo inicial
+      rangeMax: 250, // Valor máximo inicial
       positionsMap: {
         "Attack": "Delantero",
         "Goalkeeper": "Portero",
@@ -75,17 +90,38 @@ export default {
       },
       players: [],
       page: 1,
-      perPage: 10, // Paginación con 10 jugadores por página (2 filas de 5 jugadores)
+      perPage: 10,
       hasMorePlayers: false
     };
   },
+  mounted() {
+    this.initSlider();
+  },
   methods: {
+    initSlider() {
+      const slider = document.getElementById('range-slider');
+      noUiSlider.create(slider, {
+        start: [this.rangeMin, this.rangeMax],
+        connect: true,
+        range: {
+          'min': 0,
+          'max': 250
+        },
+        step: 1, // Permitir incrementos de 1
+      });
+
+      slider.noUiSlider.on('update', (values) => {
+        this.rangeMin = Math.round(values[0]); // Actualiza el valor mínimo
+        this.rangeMax = Math.round(values[1]); // Actualiza el valor máximo
+      });
+    },
     async searchPlayers() {
+      const minPrice = this.rangeMin * 1000000; 
+      const maxPrice = this.rangeMax * 1000000; 
       // Limpiar los resultados antes de realizar la nueva búsqueda
       this.players = [];
-      
       try {
-        const data = await getPlayers(this.search, this.page, this.perPage);
+        const data = await getPlayers({ ...this.search, minPrice, maxPrice }, this.page, this.perPage);
         this.players = data.players;
         this.hasMorePlayers = data.total > this.page * this.perPage;
       } catch (error) {
@@ -98,24 +134,25 @@ export default {
     async nextPage() {
       if (this.hasMorePlayers) {
         this.page++;
-        await this.searchPlayers(); // Asegúrate de que se llama correctamente la función con la página actualizada
+        await this.searchPlayers();
       }
     },
     async previousPage() {
       if (this.page > 1) {
         this.page--;
-        await this.searchPlayers(); // Asegúrate de que se llama correctamente la función con la página actualizada
+        await this.searchPlayers();
       }
     }
   }
 };
 </script>
 
+
 <style scoped>
 /* Estilos del formulario de búsqueda */
 .search-form {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 4 columnas para los filtros */
   gap: 10px;
   margin-bottom: 20px;
 }
@@ -135,16 +172,16 @@ export default {
   color: white;
   cursor: pointer;
   border-radius: 5px;
+  grid-column: span 1; /* El botón ocupa una sola columna */
 }
 
 .search-form button:hover {
   background-color: #0056b3;
 }
 
-/* Estilos para la cuadrícula de tarjetas de jugadores */
 .player-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr); /* Mostrar 5 jugadores por fila */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 20px;
   justify-items: center;
 }
@@ -154,7 +191,8 @@ export default {
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
-  width: 200px;
+  width: 100%;
+  max-width: 200px;
   cursor: pointer;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
@@ -210,4 +248,30 @@ export default {
 .pagination button:hover:enabled {
   background-color: #0056b3;
 }
+
+/* Estilos para el rango */
+.range-values {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px; /* Espacio entre el slider y los valores */
+  font-size: 1em; /* Ajusta el tamaño de la fuente según necesites */
+  color: #555; /* Color del texto */
+}
+
+.range-slider-container {
+  width: 23%; /* Ajusta este valor según tus necesidades */
+  margin: 20px 0; /* Margen para separar del resto del formulario */
+  grid-column: 1 / -1; /* Mantiene el contenedor en una fila completa */
+}
+
+#range-slider {
+  margin-top: 5px; /* Separación superior para el slider */
+  margin-bottom: 10px;
+  margin-left: 20px;
+}
+
+.slider {
+  width: 100%; /* Asegúrate de que el slider ocupe el ancho completo de su contenedor */
+}
 </style>
+

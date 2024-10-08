@@ -173,3 +173,12 @@ export const getTeamConcededGoalsChart = async (teamId, competitionId) => {
     throw error; // Lanza el error para que se pueda manejar en el componente
   }
 };
+
+export const getTeamById = async (teamId) => {
+  try {
+    const response = await axios.get(`${API_URL}/teams/${teamId}`);
+    return response.data; // Ya no es necesario hacer .json() porque Axios ya lo convierte automáticamente
+  } catch (error) {
+    throw new Error('Error al cargar los detalles del equipo');
+  }
+};
