@@ -147,13 +147,42 @@ def search_players():
         connection.close()
 
 
+# Endpoint para obtener los 3 jugadores con más goles
+@app.route('/api/top_scorers', methods=['GET'])
+def get_top_scorers():
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            # Consulta para obtener los 3 jugadores con más goles
+            sql = """
+                SELECT p.player_id, p.name, p.country_of_birth, p.image_url, COUNT(ge.player_id) AS goals
+                FROM players p
+                JOIN game_events ge ON p.player_id = ge.player_id
+                WHERE ge.type = 'Goals'
+                GROUP BY p.player_id
+                ORDER BY goals DESC
+                LIMIT 3;
+            """
+            cursor.execute(sql)
+            top_scorers = cursor.fetchall()
+            print(f"Top scorers encontrados: {top_scorers}")
+
+            if not top_scorers:
+                return jsonify({'error': 'No se encontraron jugadores con goles'}), 404
+
+            return jsonify(top_scorers)
+    except Exception as e:
+        print(f"Error: {e}")  # Imprimir el error en los registros
+        return jsonify({"error": str(e)}), 500
+    finally:
+        connection.close()
+        
+
 @app.route('/api/players/<int:player_id>', methods=['GET'])
 def get_player_by_id(player_id):
     connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
-            print(f"Recibiendo ID de jugador: {player_id}")
-            
             # Consulta para obtener los datos del jugador
             sql_player = """
                 SELECT * FROM players WHERE player_id = %s
@@ -664,7 +693,6 @@ def get_player_goals_chart(player_id):
     connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
-            print("Hola")
             sql = """
                 SELECT YEAR(date) AS year, COUNT(*) AS goals
                 FROM game_events
@@ -778,6 +806,139 @@ def get_player_assists_chart(player_id):
     finally:
         connection.close()
 
+# Endpoint para obtener las predicciones del rendimiento del jugador
+@app.route('/api/players/<int:player_id>/predictions', methods=['GET'])
+def get_player_predictions(player_id):
+    try:
+        # Llamada a la función que predice el rendimiento del jugador
+        predictions = predict_player_performance(player_id)
+        
+        # Retorna las predicciones en formato JSON
+        return jsonify(predictions), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+########################################
+# ENTRENAMIENTO DE MODELOS PREDICTIVOS #
+########################################
+
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+
+def predict_player_performance(player_id):
+    # Obtenemos la conexión a la base de datos
+    connection = get_db_connection()
+    
+    try:
+        # Establecemos un cursor para las consultas
+        with connection.cursor() as cursor:
+            # SQL para obtener goles, asistencias y tarjetas por temporada
+            sql_goals = """
+                SELECT YEAR(date) AS year, COUNT(*) AS goals
+                FROM game_events
+                WHERE player_id = %s AND type = 'Goals'
+                GROUP BY year
+                ORDER BY year;
+            """
+            
+            sql_assists = """
+                SELECT YEAR(date) AS year, COUNT(*) AS assists
+                FROM game_events
+                WHERE player_assist_id = %s
+                GROUP BY year
+                ORDER BY year;
+            """
+            
+            sql_cards = """
+                SELECT YEAR(date) AS year, COUNT(*) AS cards
+                FROM game_events
+                WHERE player_id = %s AND type = 'Cards'
+                GROUP BY year
+                ORDER BY year;
+            """
+            
+            # Estimación del número de partidos jugados
+            sql_first_year = """
+                SELECT MIN(YEAR(date)) AS first_year FROM game_events
+                WHERE player_id = %s
+            """
+            sql_last_year = """
+                SELECT MAX(YEAR(date)) AS last_year FROM game_events
+                WHERE player_id = %s
+            """
+            
+            # Obtenemos goles por año
+            cursor.execute(sql_goals, (player_id,))
+            goals_data = cursor.fetchall()
+
+            # Obtenemos asistencias por año
+            cursor.execute(sql_assists, (player_id,))
+            assists_data = cursor.fetchall()
+
+            # Obtenemos tarjetas por año
+            cursor.execute(sql_cards, (player_id,))
+            cards_data = cursor.fetchall()
+
+            # Obtenemos el primer y último año de la carrera del jugador
+            cursor.execute(sql_first_year, (player_id,))
+            first_year_result = cursor.fetchone()
+            first_year = first_year_result['first_year'] if first_year_result else None
+
+            cursor.execute(sql_last_year, (player_id,))
+            last_year_result = cursor.fetchone()
+            last_year = last_year_result['last_year'] if last_year_result else None
+
+            if first_year is not None and last_year is not None:
+                years_played = last_year - first_year + 1
+                estimated_games_played = years_played * 40
+            else:
+                estimated_games_played = 0
+
+            # Convertimos los datos a DataFrame para facilitar el manejo
+            df_goals = pd.DataFrame(goals_data, columns=['year', 'goals'])
+            df_assists = pd.DataFrame(assists_data, columns=['year', 'assists'])
+            df_cards = pd.DataFrame(cards_data, columns=['year', 'cards'])
+
+            # Unimos los datos por año para tener un dataset completo
+            df = pd.merge(df_goals, df_assists, on='year', how='outer').fillna(0)
+            df = pd.merge(df, df_cards, on='year', how='outer').fillna(0)
+
+            # Ahora usamos el total de partidos jugados en la carrera para hacer la predicción
+            X = df[['assists', 'cards']]  # Features
+            y = df['goals']  # Label (goles)
+
+            # Dividimos los datos en entrenamiento y prueba
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+            # Entrenamos un modelo de regresión lineal
+            model = LinearRegression()
+            model.fit(X_train, y_train)
+
+            # Realizamos la predicción para los próximos 40 partidos
+            # Podemos usar el promedio de asistencias y tarjetas como valores futuros estimados
+            average_assists = df['assists'].mean()
+            average_cards = df['cards'].mean()
+
+            predicted_goals_2024 = model.predict([[average_assists, average_cards]])
+
+            # Hacemos lo mismo para asistencias y tarjetas si deseas predecir esas estadísticas también
+            predicted_assists_2024 = average_assists * (40 / estimated_games_played) if estimated_games_played > 0 else 0
+            predicted_cards_2024 = average_cards * (40 / estimated_games_played) if estimated_games_played > 0 else 0
+
+            # Devolvemos los resultados
+            return {
+                "predicted_goals_2024": round(predicted_goals_2024[0],2),  # Predicción para goles
+                "predicted_assists_2024": round(predicted_assists_2024,2),  # Predicción para asistencias
+                "predicted_cards_2024": round(predicted_cards_2024,2)  # Predicción para tarjetas
+            }
+    
+    except Exception as e:
+        print(f"Error while predicting player performance: {e}")
+        return None
+    
+    finally:
+        # Asegurarse de cerrar la conexión a la base de datos
+        connection.close()
 
 
 if __name__ == '__main__':

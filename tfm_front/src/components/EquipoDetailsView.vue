@@ -51,47 +51,47 @@ export default {
 <style scoped>
 /* Estructura principal del contenedor */
 .team-container {
-  max-width: 800px;
+  max-width: 900px; /* Aumentar el ancho máximo */
   margin: 20px auto;
-  padding: 20px;
+  padding: 30px; /* Aumentar el relleno */
   background-color: #f9f9f9;
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 15px; /* Hacer los bordes más redondeados */
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15); /* Aumentar la sombra */
 }
 
 /* Encabezado del equipo */
 .team-header {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 30px; /* Aumentar el margen inferior */
 }
 
 .team-header h1 {
-  font-size: 2.5rem;
+  font-size: 3rem; /* Aumentar el tamaño del texto */
   color: #2c3e50;
   margin: 0;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #d64040;
+  padding-bottom: 15px; /* Aumentar el relleno inferior */
+  border-bottom: 3px solid #d64040; /* Hacer la línea inferior más gruesa */
 }
 
 /* Estilo para los detalles del equipo */
 .team-details {
   display: flex;
   justify-content: space-between;
-  gap: 20px;
+  gap: 30px; /* Aumentar el espacio entre los elementos */
 }
 
 /* Información detallada del equipo */
 .team-info {
   width: 100%;
-  padding: 20px;
+  padding: 30px; /* Aumentar el relleno */
   background-color: #ffffff;
-  border-radius: 10px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 15px; /* Hacer los bordes más redondeados */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .team-info p {
-  margin: 10px 0;
-  font-size: 1.1rem;
+  margin: 15px 0; /* Aumentar el margen */
+  font-size: 1.2rem; /* Aumentar el tamaño del texto */
   color: #34495e;
 }
 
@@ -105,3 +105,4 @@ p:last-child {
   margin-bottom: 0;
 }
 </style>
+

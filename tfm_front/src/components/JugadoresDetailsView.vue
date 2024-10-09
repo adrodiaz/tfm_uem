@@ -27,6 +27,8 @@
       </div>
     </div>
 
+
+
     <h2>Gráficos de Rendimiento</h2>
     <div class="chart-options">
       <button
@@ -48,11 +50,28 @@
         <p v-else>No hay gráficos disponibles. Seleccione un tipo de gráfico para verlo.</p>
       </div>
     </div>
+
+    <div class="predictions-container">
+      <h2>Predicciones de Rendimiento para 2024</h2>
+      <div class="predictions-info">
+        <p><strong>Goles:</strong> {{ predictedGoals }}</p>
+        <p><strong>Asistencias:</strong> {{ predictedAssists }}</p>
+        <p><strong>Amonestaciones:</strong> {{ predictedCards }}</p>
+      </div>
+      <button class="predict-button" @click="predictPlayerPerformance">Predecir Rendimiento</button>
+    </div>
+
   </div>
 </template>
 
 <script>
-import { getPlayerById, getPlayerGoalsChart, getPlayerAssistsChart, getPlayerCardsChart } from '../services/api';
+import {
+  getPlayerById,
+  getPlayerGoalsChart,
+  getPlayerAssistsChart,
+  getPlayerCardsChart,
+  getPlayerPerformancePrediction
+} from '../services/api';
 
 export default {
   data() {
@@ -62,6 +81,9 @@ export default {
       chartTypes: ['Goles', 'Asistencias', 'Amonestaciones'],
       selectedChart: 'Goles',
       performanceChart: null,
+      predictedGoals: null,
+      predictedAssists: null,
+      predictedCards: null,
     };
   },
   computed: {
@@ -90,9 +112,20 @@ export default {
     }
   },
   methods: {
+    async predictPlayerPerformance() {
+      try {
+        const predictions = await getPlayerPerformancePrediction(this.player.player_id);
+        this.predictedGoals = predictions.predicted_goals_2024;
+        this.predictedAssists = predictions.predicted_assists_2024;
+        this.predictedCards = predictions.predicted_cards_2024;
+      } catch (error) {
+        console.error('Error fetching player predictions:', error);
+      }
+    },
+
     async selectChart(chartType) {
       this.selectedChart = chartType;
-      const playerId = this.player.player_id; // Suponiendo que `player_id` es parte del objeto `player`
+      const playerId = this.player.player_id;
 
       if (chartType === 'Goles') {
         this.performanceChart = await getPlayerGoalsChart(playerId);
@@ -216,5 +249,34 @@ p:last-child {
   max-width: 100%; /* Asegura que la imagen no exceda el ancho del contenedor */
   height: auto; /* Mantiene la proporción de la imagen */
   border-radius: 8px; /* Bordes redondeados para la imagen */
+}
+
+.predictions-container {
+  margin-top: 20px;
+  padding: 20px;
+  background-color: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.predictions-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.predict-button {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: #d64040;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.predict-button:hover {
+  background-color: #b53030;
 }
 </style>

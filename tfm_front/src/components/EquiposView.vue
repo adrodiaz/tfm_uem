@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="search-container">
     <h1>Buscar Equipos</h1>
 
     <!-- Formulario de búsqueda -->
@@ -55,7 +55,7 @@ export default {
       },
       teams: [],
       page: 1,
-      perPage: 10, // Paginación con 10 equipos por página
+      perPage: 20, // Paginación con 10 equipos por página
       hasMoreTeams: false,
       countries: {
         "Germany": "Alemania",
@@ -75,7 +75,7 @@ export default {
       }
     };
   },
-    methods: {
+  methods: {
     // Método para reiniciar la búsqueda y establecer la página en 1
     async resetSearch() {
       this.page = 1; // Reiniciar a la primera página
@@ -126,15 +126,22 @@ export default {
 </script>
 
 <style scoped>
-/* Estilos del formulario de búsqueda */
-.search-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 20px;
+/* Estilos del contenedor principal */
+.search-container {
+  margin: 20px; /* Espacio alrededor del contenedor */
 }
 
-.search-form input {
+/* Estilos del formulario de búsqueda */
+.search-form {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* 3 columnas para los filtros */
+  gap: 10px;
+  margin-bottom: 20px; /* Espacio debajo del formulario */
+  margin-top: 0; /* Asegúrate de que no haya margen superior */
+}
+
+.search-form input,
+.search-form select {
   padding: 10px;
   font-size: 1em;
   border: 1px solid #ccc;
@@ -145,26 +152,26 @@ export default {
   padding: 10px 20px;
   font-size: 1em;
   border: none;
-  background-color: #007bff;
+  background-color: #d64040;
   color: white;
   cursor: pointer;
   border-radius: 5px;
 }
 
 .search-form button:hover {
-  background-color: #0056b3;
+  background-color: #eb7f7f;
 }
 
 /* Estilos para la cuadrícula de tarjetas de equipos */
 .team-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr); /* Mostrar 5 equipos por fila */
+  grid-template-columns: repeat(5, 1fr);
   gap: 20px;
   justify-items: center;
 }
 
 .team-card {
-  background-color: #fff;
+  background-color: #d5eef5;
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -188,7 +195,7 @@ export default {
   font-size: 1.1em;
 }
 
-.team-country, .team-competition {
+.team-country {
   margin: 5px 0;
   color: #555;
 }
@@ -205,7 +212,7 @@ export default {
   padding: 10px 20px;
   font-size: 1em;
   border: none;
-  background-color: #007bff;
+  background-color: #d64040;
   color: white;
   cursor: pointer;
   border-radius: 5px;
@@ -216,6 +223,6 @@ export default {
 }
 
 .pagination button:hover:enabled {
-  background-color: #0056b3;
+  background-color: #eb7f7f;
 }
 </style>

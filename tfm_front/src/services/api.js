@@ -223,3 +223,24 @@ export const getPlayerAssistsChart = async (playerId) => {
     throw error; // Lanza el error para que se pueda manejar en el componente
   }
 };
+
+// Obtener las predicciones de rendimiento del jugador
+export const getPlayerPerformancePrediction = async (playerId) => {
+  try {
+    const response = await axios.get(`${API_URL}/players/${playerId}/predictions`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching player performance predictions:', error);
+    throw error;
+  }
+};
+
+export const getTopScorers = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/top_scorers`);
+    return response.data; // Devuelve los datos de los jugadores
+  } catch (error) {
+    console.error('Error al obtener los jugadores:', error);
+    throw error; // Lanza el error para manejarlo en el componente
+  }
+};
