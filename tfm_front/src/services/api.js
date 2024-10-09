@@ -91,6 +91,18 @@ export const getSeasons = async (competitionId) => {
   }
 };
 
+export const getTeamsBySeason = async (competitionId, season) => {
+  try {
+    const response = await axios.get(`${API_URL}/teams`, {
+      params: { competition_id: competitionId, season: season }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching teams:', error);
+    throw error;
+  }
+};
+
 // Obtener juegos por competición y temporada
 export async function getGamesByCompetition(competitionId, season) {
   try {
@@ -105,17 +117,7 @@ export async function getGamesByCompetition(competitionId, season) {
   }
 }
 
-export const getTeamsBySeason = async (competitionId, season) => {
-  try {
-    const response = await axios.get(`${API_URL}/teams`, {
-      params: { competition_id: competitionId, season: season }
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching teams:', error);
-    throw error;
-  }
-};
+
 
 export const getTeamPerformanceChart = async (teamId, competitionId) => {
   try {
@@ -180,5 +182,44 @@ export const getTeamById = async (teamId) => {
     return response.data; // Ya no es necesario hacer .json() porque Axios ya lo convierte automáticamente
   } catch (error) {
     throw new Error('Error al cargar los detalles del equipo');
+  }
+};
+
+export const getPlayerGoalsChart = async (playerId) => {
+  try {
+    const response = await axios.get(`${API_URL}/player_goals_chart/${playerId}`, {
+      responseType: 'blob', // Aquí especificamos que queremos un blob
+    });
+    const imageUrl = URL.createObjectURL(response.data);
+    return imageUrl; // Devolvemos la URL de la imagen
+  } catch (error) {
+    console.error('Error fetching player goals chart:', error);
+    throw error; // Lanza el error para que se pueda manejar en el componente
+  }
+};
+
+export const getPlayerCardsChart = async (playerId) => {
+  try {
+    const response = await axios.get(`${API_URL}/player_cards_chart/${playerId}`, {
+      responseType: 'blob', // Aquí especificamos que queremos un blob
+    });
+    const imageUrl = URL.createObjectURL(response.data);
+    return imageUrl; // Devolvemos la URL de la imagen
+  } catch (error) {
+    console.error('Error fetching player cards chart:', error);
+    throw error; // Lanza el error para que se pueda manejar en el componente
+  }
+};
+
+export const getPlayerAssistsChart = async (playerId) => {
+  try {
+    const response = await axios.get(`${API_URL}/player_assists_chart/${playerId}`, {
+      responseType: 'blob', // Aquí especificamos que queremos un blob
+    });
+    const imageUrl = URL.createObjectURL(response.data);
+    return imageUrl; // Devolvemos la URL de la imagen
+  } catch (error) {
+    console.error('Error fetching player assists chart:', error);
+    throw error; // Lanza el error para que se pueda manejar en el componente
   }
 };

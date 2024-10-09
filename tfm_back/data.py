@@ -4,16 +4,16 @@ from sklearn.ensemble import RandomForestRegressor
 import numpy as np  # Para manejar NaN
 
 # Cargamos los datasets
-appearances = pd.read_csv('D:/UEM/TFM/tfm/data/appearances.csv')
-club_games = pd.read_csv('D:/UEM/TFM/tfm/data/club_games.csv')
-clubs = pd.read_csv('D:/UEM/TFM/tfm/data/clubs.csv')
-competitions = pd.read_csv('D:/UEM/TFM/tfm/data/competitions.csv')
-game_events = pd.read_csv('D:/UEM/TFM/tfm/data/game_events.csv')
-game_lineups = pd.read_csv('D:/UEM/TFM/tfm/data/game_lineups.csv')
-games = pd.read_csv('D:/UEM/TFM/tfm/data/games.csv')
-player_valuations = pd.read_csv('D:/UEM/TFM/tfm/data/player_valuations.csv')
-players = pd.read_csv('D:/UEM/TFM/tfm/data/players.csv')
-transfers = pd.read_csv('D:/UEM/TFM/tfm/data/transfers.csv')
+appearances = pd.read_csv('D:/UEM/TFM_DATA/tfm_data/data/appearances.csv')
+club_games = pd.read_csv('D:/UEM/TFM_DATA/tfm_data/data/club_games.csv')
+clubs = pd.read_csv('D:/UEM/TFM_DATA/tfm_data/data/clubs.csv')
+competitions = pd.read_csv('D:/UEM/TFM_DATA/tfm_data/data/competitions.csv')
+game_events = pd.read_csv('D:/UEM/TFM_DATA/tfm_data/data/game_events.csv')
+game_lineups = pd.read_csv('D:/UEM/TFM_DATA/tfm_data/data/game_lineups.csv')
+games = pd.read_csv('D:/UEM/TFM_DATA/tfm_data/data/games.csv')
+player_valuations = pd.read_csv('D:/UEM/TFM_DATA/tfm_data/data/player_valuations.csv')
+players = pd.read_csv('D:/UEM/TFM_DATA/tfm_data/data/players.csv')
+transfers = pd.read_csv('D:/UEM/TFM_DATA/tfm_data/data/transfers.csv')
 
 # Eliminamos filas con valores nulos en columnas clave y convertimos fechas
 
@@ -69,14 +69,28 @@ filtered_players_df = players[
 ]
 
 # game_events
-game_events.dropna(subset=['game_event_id', 'date','game_id','club_id','player_id'], inplace=True)
+game_events.dropna(subset=['game_event_id', 'date', 'game_id', 'club_id', 'player_id'], inplace=True)
 game_events['date'] = pd.to_datetime(game_events['date'], errors='coerce')
+
+# Reemplaza 'description' y 'player_in_id' si es necesario
 game_events.drop(columns=['description'], inplace=True)
+game_events.drop(columns=['player_in_id'], inplace=True)
+
+# Reemplazar 'null' por pd.NA en player_assist_id
+game_events['player_assist_id'] = game_events['player_assist_id'].replace('null', pd.NA)
+
+# Convierte player_id y player_assist_id a enteros
+game_events['player_id'] = pd.to_numeric(game_events['player_id'], errors='coerce', downcast='integer')
+game_events['player_assist_id'] = pd.to_numeric(game_events['player_assist_id'], errors='coerce', downcast='integer')
+
+# Asegúrate de que los tipos sean correctos
+game_events['player_id'] = game_events['player_id'].astype('Int64')  # Tipo entero con soporte para NaN
+game_events['player_assist_id'] = game_events['player_assist_id'].astype('Int64')  # Tipo entero con soporte para NaN
+
 # Filtrar por 'club_id' y 'game_id'
 filtered_game_events_df = game_events[
-    (game_events['club_id'].isin(filtered_clubs_df['club_id']))  & 
+    (game_events['club_id'].isin(filtered_clubs_df['club_id'])) &
     (game_events['game_id'].isin(filtered_games_df['game_id'])) &
-    ((game_events['player_in_id'].isnull()) | (game_events['player_in_id'].isin(filtered_players_df['player_id']))) &
     ((game_events['player_assist_id'].isnull()) | (game_events['player_assist_id'].isin(filtered_players_df['player_id'])))
 ]
 
@@ -110,16 +124,16 @@ filtered_transfers_df = transfers[
 ]
 
 # Guardamos los DataFrames actualizados
-competitions.to_csv('D:/UEM/TFM/tfm/data_clean/competitions_clean.csv', index=False)
-filtered_appearances_df.to_csv('D:/UEM/TFM/tfm/data_clean/appearances_clean.csv', index=False)
-filtered_clubs_df.to_csv('D:/UEM/TFM/tfm/data_clean/clubs_clean.csv', index=False)
-filtered_club_games_df.to_csv('D:/UEM/TFM/tfm/data_clean/club_games_clean.csv', index=False)
-filtered_games_df.to_csv('D:/UEM/TFM/tfm/data_clean/games_clean.csv', index=False)
-filtered_game_events_df.to_csv('D:/UEM/TFM/tfm/data_clean/game_events_clean.csv', index=False)
-filtered_game_lineups_df.to_csv('D:/UEM/TFM/tfm/data_clean/game_lineups_clean.csv', index=False)
-filtered_players_df.to_csv('D:/UEM/TFM/tfm/data_clean/players_clean.csv', index=False, na_rep='NULL')
-filtered_player_valuations_df.to_csv('D:/UEM/TFM/tfm/data_clean/player_valuations_clean.csv', index=False)
-filtered_transfers_df.to_csv('D:/UEM/TFM/tfm/data_clean/transfers_clean.csv', index=False)
+competitions.to_csv('D:/UEM/TFM_DATA/tfm_data/data_clean/competitions_clean.csv', index=False)
+filtered_appearances_df.to_csv('D:/UEM/TFM_DATA/tfm_data/data_clean/appearances_clean.csv', index=False)
+filtered_clubs_df.to_csv('D:/UEM/TFM_DATA/tfm_data/data_clean/clubs_clean.csv', index=False)
+filtered_club_games_df.to_csv('D:/UEM/TFM_DATA/tfm_data/data_clean/club_games_clean.csv', index=False)
+filtered_games_df.to_csv('D:/UEM/TFM_DATA/tfm_data/data_clean/games_clean.csv', index=False)
+filtered_game_events_df.to_csv('D:/UEM/TFM_DATA/tfm_data/data_clean/game_events_clean.csv', index=False, na_rep='NULL')
+filtered_game_lineups_df.to_csv('D:/UEM/TFM_DATA/tfm_data/data_clean/game_lineups_clean.csv', index=False)
+filtered_players_df.to_csv('D:/UEM/TFM_DATA/tfm_data/data_clean/players_clean.csv', index=False, na_rep='NULL')
+filtered_player_valuations_df.to_csv('D:/UEM/TFM_DATA/tfm_data/data_clean/player_valuations_clean.csv', index=False)
+filtered_transfers_df.to_csv('D:/UEM/TFM_DATA/tfm_data/data_clean/transfers_clean.csv', index=False)
 
 
 

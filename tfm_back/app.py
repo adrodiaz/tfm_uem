@@ -147,38 +147,130 @@ def search_players():
         connection.close()
 
 
-# Endpoint para obtener los detalles de un jugador por su ID
 @app.route('/api/players/<int:player_id>', methods=['GET'])
 def get_player_by_id(player_id):
     connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
+            print(f"Recibiendo ID de jugador: {player_id}")
+            
             # Consulta para obtener los datos del jugador
             sql_player = """
                 SELECT * FROM players WHERE player_id = %s
             """
             cursor.execute(sql_player, (player_id,))
             player = cursor.fetchone()
+            print(f"Jugador encontrado: {player}")
 
             if not player:
                 return jsonify({'error': 'Jugador no encontrado'}), 404
 
-            # Simular estadísticas, puedes hacer una consulta similar a otra tabla
-            stats = {
-                "games_played": 100,  # Ejemplo de datos
-                "goals": 50,          # Ejemplo de datos
-                "assists": 20         # Ejemplo de datos
-            }
+            # Consulta para obtener los goles
+            sql_goals = """
+                SELECT COUNT(*) FROM game_events
+                WHERE player_id = %s AND type = 'Goals'
+            """
+            try:
+                cursor.execute(sql_goals, (player_id,))
+                goals = cursor.fetchone()  # Esto puede devolver un diccionario
+                print(f"Goles encontrados: {goals}")
+                # Accede al valor a través de la clave
+                goals_count = goals['COUNT(*)'] if goals else 0
+            except Exception as e:
+                print(f"Error al obtener goles: {e}")
+                goals_count = 0
+
+            # Consulta para obtener las tarjetas
+            sql_cards = """
+                SELECT COUNT(*) FROM game_events
+                WHERE player_id = %s AND type = 'Cards'
+            """
+            try:
+                cursor.execute(sql_cards, (player_id,))
+                cards = cursor.fetchone()  # Esto puede devolver un diccionario
+                # Accede al valor a través de la clave
+                cards_count = cards['COUNT(*)'] if cards else 0
+            except Exception as e:
+                cards_count = 0
+
+            # Consulta para obtener las asistencias
+            sql_assists = """
+                SELECT COUNT(*) FROM game_events
+                WHERE player_assist_id = %s
+            """
+            try:
+                cursor.execute(sql_assists, (player_id,))
+                assists = cursor.fetchone()  # Esto puede devolver un diccionario
+                # Accede al valor a través de la clave
+                assists_count = assists['COUNT(*)'] if assists else 0
+            except Exception as e:
+                assists_count = 0
+
+            # Consulta para obtener la cantidad de partidos jugados
+            sql_games_played = """
+                SELECT COUNT(DISTINCT game_id) FROM game_events
+                WHERE player_id = %s OR player_assist_id = %s
+            """
+            try:
+                cursor.execute(sql_games_played, (player_id, player_id))
+                games_played = cursor.fetchone()  # Esto puede devolver un diccionario
+                # Accede al valor a través de la clave
+                games_played_count = games_played['COUNT(DISTINCT game_id)'] if games_played else 0
+            except Exception as e:
+                games_played_count = 0
 
             # Devolver los datos del jugador junto con las estadísticas
+            stats = {
+                "games_played": games_played_count,
+                "goals": goals_count,
+                "cards": cards_count,
+                "assists": assists_count
+            }
+            
+            # Calcular estimación de partidos jugados
+            sql_first_year = """
+                SELECT MIN(YEAR(date)) AS first_year FROM game_events
+                WHERE player_id = %s
+            """
+            sql_last_year = """
+                SELECT MAX(YEAR(date)) AS last_year FROM game_events
+                WHERE player_id = %s
+            """
+            cursor.execute(sql_first_year, (player_id,))
+            first_year_result = cursor.fetchone()
+            first_year = first_year_result['first_year'] if first_year_result and 'first_year' in first_year_result else None
+
+            cursor.execute(sql_last_year, (player_id,))
+            last_year_result = cursor.fetchone()
+            last_year = last_year_result['last_year'] if last_year_result and 'last_year' in last_year_result else None
+
+            if first_year is not None and last_year is not None:
+                years_played = last_year - first_year + 1  # Incluye el año inicial
+                estimated_games_played = years_played * 40  # Promedio de 40 partidos por año
+            else:
+                first_year = None
+                last_year = None
+                estimated_games_played = 0
+
+            # Agregar los años y el estimado de partidos a stats
+            stats.update({
+                "first_year": first_year,
+                "last_year": last_year,
+                "estimated_games_played": estimated_games_played
+            })
+
+
             return jsonify({
                 "player": player,
                 "stats": stats
             })
     except Exception as e:
+        print(f"Error: {e}")  # Imprimir el error en los registros
         return jsonify({"error": str(e)}), 500
     finally:
         connection.close()
+
+
 
 @app.route('/api/games', methods=['GET'])
 def get_games_by_competition():
@@ -270,7 +362,35 @@ def get_seasons_by_competition():
     finally:
         connection.close()
         
-        
+@app.route('/api/teams', methods=['GET'])
+def get_teams_by_competition_and_season():
+    competition_id = request.args.get('competition_id')
+    season = request.args.get('season')
+
+    if not competition_id or not season:
+        return jsonify({"error": "competition_id and season are required"}), 400
+
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            sql = """
+                SELECT
+                    c.club_id AS team_id,
+                    c.name AS team_name
+                FROM clubs c
+                JOIN games g ON g.home_club_id = c.club_id OR g.away_club_id = c.club_id
+                WHERE g.competition_id = %s AND g.season = %s
+                GROUP BY c.club_id, c.name
+            """
+            cursor.execute(sql, (competition_id, season))
+            teams = cursor.fetchall()
+            
+            if not teams:
+                return jsonify({"error": "No teams found"}), 404
+
+            return jsonify(teams)
+    finally:
+        connection.close()
         
 @app.route('/api/teamsSearch', methods=['GET']) 
 def get_teams():
@@ -537,6 +657,127 @@ def get_team_details(team_id):
         return jsonify({"error": "Internal server error"}), 500
     finally:
         connection.close()
+
+#Graficos de estadisticas de jugadores:
+@app.route('/api/player_goals_chart/<int:player_id>', methods=['GET'])
+def get_player_goals_chart(player_id):
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            print("Hola")
+            sql = """
+                SELECT YEAR(date) AS year, COUNT(*) AS goals
+                FROM game_events
+                WHERE player_id = %s AND type = 'Goals'
+                GROUP BY year
+                ORDER BY year;
+            """
+            cursor.execute(sql, (player_id,))
+            goals_data = cursor.fetchall()
+            print(f"Goles por año: {goals_data}")
+                
+            if not goals_data:
+                return jsonify({"error": "No data found for goals"}), 404
+
+            # Crear gráfico de goles
+            years = [row['year'] for row in goals_data]
+            goals = [row['goals'] for row in goals_data]
+
+            plt.figure(figsize=(10, 6))
+            plt.plot(years, goals, marker='o', color='green', label='Goles')
+            plt.xlabel('Año')
+            plt.ylabel('Goles')
+            plt.title('Goles por año')
+            plt.grid(True)
+            plt.legend()
+
+            # Guardar la gráfica en un objeto de memoria
+            img = io.BytesIO()
+            plt.savefig(img, format='png')
+            img.seek(0)
+
+            return send_file(img, mimetype='image/png')
+    finally:
+        connection.close()
+
+
+@app.route('/api/player_cards_chart/<int:player_id>', methods=['GET'])
+def get_player_cards_chart(player_id):
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            sql = """
+                SELECT YEAR(date) AS year, COUNT(*) AS cards
+                FROM game_events
+                WHERE player_id = %s AND type = 'Cards'
+                GROUP BY year
+                ORDER BY year;
+            """
+            cursor.execute(sql, (player_id,))
+            cards_data = cursor.fetchall()
+
+            if not cards_data:
+                return jsonify({"error": "No data found for cards"}), 404
+
+            # Crear gráfico de tarjetas
+            years = [row['year'] for row in cards_data]
+            cards = [row['cards'] for row in cards_data]
+
+            plt.figure(figsize=(10, 6))
+            plt.plot(years, cards, marker='o', color='red', label='Tarjetas')
+            plt.xlabel('Año')
+            plt.ylabel('Tarjetas')
+            plt.title('Tarjetas por año')
+            plt.grid(True)
+            plt.legend()
+
+            img = io.BytesIO()
+            plt.savefig(img, format='png')
+            img.seek(0)
+
+            return send_file(img, mimetype='image/png')
+    finally:
+        connection.close()
+
+
+@app.route('/api/player_assists_chart/<int:player_id>', methods=['GET'])
+def get_player_assists_chart(player_id):
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            sql = """
+                SELECT YEAR(date) AS year, COUNT(*) AS assists
+                FROM game_events
+                WHERE player_assist_id = %s
+                GROUP BY year
+                ORDER BY year;
+            """
+            cursor.execute(sql, (player_id,))
+            assists_data = cursor.fetchall()
+
+            if not assists_data:
+                return jsonify({"error": "No data found for assists"}), 404
+
+            # Crear gráfico de asistencias
+            years = [row['year'] for row in assists_data]
+            assists = [row['assists'] for row in assists_data]
+
+            plt.figure(figsize=(10, 6))
+            plt.plot(years, assists, marker='o', color='blue', label='Asistencias')
+            plt.xlabel('Año')
+            plt.ylabel('Asistencias')
+            plt.title('Asistencias por año')
+            plt.grid(True)
+            plt.legend()
+
+            img = io.BytesIO()
+            plt.savefig(img, format='png')
+            img.seek(0)
+
+            return send_file(img, mimetype='image/png')
+    finally:
+        connection.close()
+
 
 
 if __name__ == '__main__':
